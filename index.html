@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📝 امتحان الفرق بين مربعين (1-8)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+        body.en-mode { font-family: 'Inter', sans-serif; }
+        .correct { background-color: #dcfce7 !important; border-color: #16a34a !important; }
+        .incorrect { background-color: #fee2e2 !important; border-color: #dc2626 !important; }
+        .formula { font-family: 'Times New Roman', serif; direction: ltr; display: inline-block; font-style: italic; }
+        .timer-warning { color: #dc2626 !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { opacity: 0.7; } }
+        @media print { 
+            .no-print { display: none !important; } 
+            body { background: white; color: black; }
+            .answer-box { display: block !important; color: #166534 !important; }
+            #results-panel { display: block !important; box-shadow: none; border: 2px solid #000; }
+        }
+        .success-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 0.875rem; }
+        .grade-excellent { background: #dcfce7; color: #166534; }
+        .grade-good { background: #fef3c7; color: #92400e; }
+        .grade-pass { background: #dbeafe; color: #1e40af; }
+        .grade-fail { background: #fee2e2; color: #991b1b; }
+        .lang-switch {
+            position: fixed; top: 16px; left: 16px; z-index: 100;
+            background: white; padding: 6px; border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); display: flex; gap: 4px;
+            border: 2px solid #8b5cf6;
+        }
+        [dir="ltr"] .lang-switch { left: auto; right: 16px; }
+        .lang-btn {
+            padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: bold;
+            transition: all 0.3s; border: none; font-size: 0.875rem;
+            background: transparent; color: #6b7280;
+        }
+        .lang-btn.active { background: #8b5cf6; color: white; box-shadow: 0 2px 6px rgba(139,92,246,0.4); }
+        .lang-btn:hover:not(.active) { background: #f5f3ff; color: #8b5cf6; }
+        .shuffle-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        .math-input { border: 1px solid #d1d5db; padding: 4px 8px; border-radius: 6px; font-family: 'Cairo', monospace; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 p-4 md:p-8 min-h-screen">
+
+    <div class="lang-switch no-print">
+        <button type="button" class="lang-btn active" onclick="setLanguage('ar')" id="btn-ar">عربي</button>
+        <button type="button" class="lang-btn" onclick="setLanguage('en')" id="btn-en">EN</button>
+    </div>
+
+    <div id="timer-container" class="max-w-4xl mx-auto mb-4 text-center no-print">
+        <div class="bg-white p-4 rounded-xl shadow-md inline-block border-2 border-purple-100">
+            <span class="text-gray-600 ml-2" data-ar="⏱️ الوقت المتبقي:" data-en="⏱️ Time Remaining:">⏱️ الوقت المتبقي:</span>
+            <span id="timer" class="text-2xl font-bold text-purple-600 font-mono">60:00</span>
+            <span class="shuffle-badge" data-ar="🔀 أسئلة عشوائية" data-en="🔀 Random Questions">🔀 أسئلة عشوائية</span>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto mb-6 flex flex-wrap gap-3 justify-center no-print">
+        <button type="button" onclick="toggleAnswers()" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg font-medium transition shadow cursor-pointer" data-ar="👁️ إظهار / إخفاء الإجابات" data-en="👁️ Show / Hide Answers">👁️ إظهار / إخفاء الإجابات</button>
+        <button type="button" onclick="window.print()" class="bg-gray-800 hover:bg-gray-900 text-white px-5 py-2 rounded-lg font-medium transition shadow cursor-pointer" data-ar="🖨️ طباعة / PDF" data-en="🖨️ Print / PDF">🖨️ طباعة / PDF</button>
+        <button type="button" onclick="reshuffleExam()" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-5 py-2 rounded-lg font-medium transition shadow cursor-pointer" data-ar="🔀 إعادة خلط الأسئلة" data-en="🔀 Reshuffle Questions">🔀 إعادة خلط الأسئلة</button>
+    </div>
+
+    <header class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-md mb-8 border-r-4 border-purple-600">
+        <div class="text-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2" data-ar="📝 امتحان الفرق بين مربعين (1-8)" data-en="📝 Difference of Squares (1-8) Exam">📝 امتحان الفرق بين مربعين (1-8)</h1>
+            <h2 class="text-lg text-purple-600 font-semibold" data-ar="Difference of Squares" data-en="Difference of Squares">Difference of Squares</h2>
+            <p class="text-sm text-gray-600 mt-2" data-ar="امتحان شامل لتحليل الفرق بين مربعين وحل المعادلات باستخدام هذه التقنية" data-en="Comprehensive exam on factoring difference of squares and solving equations using this technique">امتحان شامل لتحليل الفرق بين مربعين وحل المعادلات باستخدام هذه التقنية</p>
+            <p class="text-xs text-purple-600 mt-2 font-semibold" data-ar="⚠️ ملاحظة: يتم خلط ترتيب الأسئلة والخيارات تلقائياً مع كل تحديث للصفحة" data-en="⚠️ Note: Questions and options are randomly shuffled on every page refresh">⚠️ ملاحظة: يتم خلط ترتيب الأسئلة والخيارات تلقائياً مع كل تحديث للصفحة</p>
+        </div>
+        <div class="mt-4 flex flex-wrap justify-center gap-4 text-sm text-gray-600">
+            <span><span data-ar="📅 التاريخ:" data-en="📅 Date:">📅 التاريخ:</span> <input type="date" id="examDate" class="border-b border-gray-400 bg-transparent w-32 text-center"></span>
+            <span><span data-ar="👤 الاسم:" data-en="👤 Name:">👤 الاسم:</span> <input type="text" id="studentName" class="border-b border-gray-400 bg-transparent w-32 text-center" placeholder="Enter name" required></span>
+            <span><span data-ar="🏫 الشعبة:" data-en="🏫 Class:">🏫 الشعبة:</span> <input type="text" id="studentClass" class="border-b border-gray-400 bg-transparent w-28 text-center" placeholder="Class"></span>
+            <span><span data-ar="⏱️ المدة: 60 دقيقة" data-en="⏱️ Duration: 60 min">⏱️ المدة: 60 دقيقة</span></span>
+            <span><span data-ar="📊 المجموع: 50 درجة" data-en="📊 Total: 50 pts">📊 المجموع: 50 درجة</span></span>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto space-y-8" id="exam-content"></main>
+
+    <div class="text-center no-print pb-8 mt-8">
+        <button type="button" onclick="gradeExam()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-lg px-10 py-4 rounded-xl font-bold shadow-xl transition transform hover:scale-105 cursor-pointer" data-ar="📝 تسليم وتصحيح الامتحان" data-en="📝 Submit & Grade Exam">📝 تسليم وتصحيح الامتحان</button>
+    </div>
+
+    <div id="results-panel" class="max-w-4xl mx-auto mt-8 bg-white p-8 rounded-2xl shadow-2xl border-t-4 border-emerald-500 hidden no-print">
+        <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center" data-ar="📊 نتائج الامتحان" data-en="📊 Exam Results">📊 نتائج الامتحان</h2>
+        <div class="grid md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-blue-50 p-4 rounded-xl text-center"><p data-ar="اسم الطالب" data-en="Student Name">اسم الطالب</p><p id="res-name" class="font-bold text-xl text-purple-700">-</p></div>
+            <div class="bg-purple-50 p-4 rounded-xl text-center"><p data-ar="التاريخ" data-en="Date">التاريخ</p><p id="res-date" class="font-bold text-xl text-purple-700">-</p></div>
+            <div class="bg-emerald-50 p-4 rounded-xl text-center"><p data-ar="المجموع" data-en="Score">المجموع</p><p id="res-total" class="font-bold text-3xl text-emerald-600">0 / 50</p></div>
+        </div>
+        <div class="text-center mb-6">
+            <span id="success-badge" class="success-badge grade-excellent">-</span>
+            <p id="success-percent" class="text-4xl font-bold text-emerald-600 mt-2">100%</p>
+            <p class="text-sm text-gray-500" data-ar="نسبة النجاح" data-en="Success Rate">نسبة النجاح</p>
+        </div>
+        <div class="bg-gray-50 p-6 rounded-xl mb-6">
+            <h3 class="font-bold text-lg mb-4 text-gray-800" data-ar="📈 تفصيل الأداء حسب القسم:" data-en="📈 Performance Breakdown:">📈 تفصيل الأداء حسب القسم:</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center"><span class="text-gray-700" data-ar="تحليل الفرق بين مربعين" data-en="Factoring Difference of Squares">تحليل الفرق بين مربعين</span><span id="sec1-score" class="font-bold text-purple-600">0/10</span></div>
+                <div class="flex justify-between items-center"><span class="text-gray-700" data-ar="تطبيق تقنيات متعددة" data-en="Applying Multiple Techniques">تطبيق تقنيات متعددة</span><span id="sec2-score" class="font-bold text-purple-600">0/10</span></div>
+                <div class="flex justify-between items-center"><span class="text-gray-700" data-ar="حل المعادلات" data-en="Solving Equations">حل المعادلات</span><span id="sec3-score" class="font-bold text-purple-600">0/10</span></div>
+                <div class="flex justify-between items-center"><span class="text-gray-700" data-ar="التطبيقات الحياتية" data-en="Real-Life Applications">التطبيقات الحياتية</span><span id="sec4-score" class="font-bold text-purple-600">0/10</span></div>
+                <div class="flex justify-between items-center"><span class="text-gray-700" data-ar="المسائل المتقدمة" data-en="Advanced Problems">المسائل المتقدمة</span><span id="sec5-score" class="font-bold text-purple-600">0/10</span></div>
+            </div>
+        </div>
+        <div class="text-center mb-6">
+            <button type="button" id="sendEmailBtn" onclick="sendResultsToEmail()" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-lg px-8 py-3 rounded-xl font-bold shadow-xl transition transform hover:scale-105 cursor-pointer" data-ar="📧 إرسال النتائج للمعلم" data-en="📧 Send Results to Teacher">📧 إرسال النتائج للمعلم</button>
+            <p id="emailStatus" class="text-sm mt-2 text-center font-medium"></p>
+        </div>
+        <div class="flex gap-3 justify-center">
+            <button type="button" onclick="window.print()" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold" data-ar="🖨️ طباعة النتائج" data-en="🖨️ Print Results">🖨️ طباعة النتائج</button>
+        </div>
+    </div>
+
+    <footer class="max-w-4xl mx-auto mt-10 mb-8 text-center text-gray-500 text-sm no-print">
+        © <span data-ar="Difference of Squares (1-8)" data-en="Difference of Squares (1-8)">Difference of Squares (1-8)</span> | Mr. Mohammed Hesham | 📱 +971555642674
+    </footer>
+
+<script>
+// ==================== EmailJS Settings ====================
+const PUBLIC_KEY = "Rb3Lq8tXaFmc5YHUH";
+const SERVICE_ID = "service_w15m64i";
+const TEMPLATE_ID = "template_5b0u2tq";
+const TARGET_EMAIL = "mohammedhesham872@gmail.com";
+
+emailjs.init(PUBLIC_KEY);
+
+const originalExamData = {
+    sections: [
+        {
+            id: 'sec1',
+            title: { ar: '🔹 الجزء الأول: تحليل الفرق بين مربعين', en: '🔹 Part 1: Factoring Difference of Squares' },
+            questions: [
+                { q: { ar: 'حلل التعبير إلى عوامل: x² - 9', en: 'Factor the expression: x² - 9' }, options: [ { ar: '(x + 3)(x - 3)', en: '(x + 3)(x - 3)' }, { ar: '(x - 3)(x + 3)', en: '(x - 3)(x + 3)' }, { ar: '(x + 9)(x - 1)', en: '(x + 9)(x - 1)' }, { ar: '(x - 9)(x + 1)', en: '(x - 9)(x + 1)' } ], correct: 0, answer: { ar: 'تحليل x² - 9 إلى عوامل هو (x + 3)(x - 3).', en: 'The factorization of x² - 9 is (x + 3)(x - 3).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 4a² - 25', en: 'Factor the expression: 4a² - 25' }, options: [ { ar: '(2a + 5)(2a - 5)', en: '(2a + 5)(2a - 5)' }, { ar: '(2a - 5)(2a + 5)', en: '(2a - 5)(2a + 5)' }, { ar: '(4a + 25)(4a - 1)', en: '(4a + 25)(4a - 1)' }, { ar: '(4a - 25)(4a + 1)', en: '(4a - 25)(4a + 1)' } ], correct: 0, answer: { ar: 'تحليل 4a² - 25 إلى عوامل هو (2a + 5)(2a - 5).', en: 'The factorization of 4a² - 25 is (2a + 5)(2a - 5).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 9m² - 144', en: 'Factor the expression: 9m² - 144' }, options: [ { ar: '(3m + 12)(3m - 12)', en: '(3m + 12)(3m - 12)' }, { ar: '(3m - 12)(3m + 12)', en: '(3m - 12)(3m + 12)' }, { ar: '(9m + 144)(9m - 1)', en: '(9m + 144)(9m - 1)' }, { ar: '(9m - 144)(9m + 1)', en: '(9m - 144)(9m + 1)' } ], correct: 0, answer: { ar: 'تحليل 9m² - 144 إلى عوامل هو (3m + 12)(3m - 12).', en: 'The factorization of 9m² - 144 is (3m + 12)(3m - 12).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 2p³ - 162p', en: 'Factor the expression: 2p³ - 162p' }, options: [ { ar: '2p(p² - 81)', en: '2p(p² - 81)' }, { ar: '2p(p - 9)(p + 9)', en: '2p(p - 9)(p + 9)' }, { ar: '2p(p² + 81)', en: '2p(p² + 81)' }, { ar: '2p(p - 81)(p + 1)', en: '2p(p - 81)(p + 1)' } ], correct: 1, answer: { ar: 'تحليل 2p³ - 162p إلى عوامل هو 2p(p - 9)(p + 9).', en: 'The factorization of 2p³ - 162p is 2p(p - 9)(p + 9).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: u⁴ - 81', en: 'Factor the expression: u⁴ - 81' }, options: [ { ar: '(u² + 9)(u² - 9)', en: '(u² + 9)(u² - 9)' }, { ar: '(u² - 9)(u² + 9)', en: '(u² - 9)(u² + 9)' }, { ar: '(u + 3)(u - 3)(u² + 9)', en: '(u + 3)(u - 3)(u² + 9)' }, { ar: '(u - 3)(u + 3)(u² + 9)', en: '(u - 3)(u + 3)(u² + 9)' } ], correct: 2, answer: { ar: 'تحليل u⁴ - 81 إلى عوامل هو (u + 3)(u - 3)(u² + 9).', en: 'The factorization of u⁴ - 81 is (u + 3)(u - 3)(u² + 9).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 2d⁴ - 32f⁴', en: 'Factor the expression: 2d⁴ - 32f⁴' }, options: [ { ar: '2(d² + 4f²)(d² - 4f²)', en: '2(d² + 4f²)(d² - 4f²)' }, { ar: '2(d² - 4f²)(d² + 4f²)', en: '2(d² - 4f²)(d² + 4f²)' }, { ar: '2(d + 2f)(d - 2f)(d² + 4f²)', en: '2(d + 2f)(d - 2f)(d² + 4f²)' }, { ar: '2(d - 2f)(d + 2f)(d² + 4f²)', en: '2(d - 2f)(d + 2f)(d² + 4f²)' } ], correct: 3, answer: { ar: 'تحليل 2d⁴ - 32f⁴ إلى عوامل هو 2(d - 2f)(d + 2f)(d² + 4f²).', en: 'The factorization of 2d⁴ - 32f⁴ is 2(d - 2f)(d + 2f)(d² + 4f²).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 20r⁴ - 45n⁴', en: 'Factor the expression: 20r⁴ - 45n⁴' }, options: [ { ar: '5(4r⁴ - 9n⁴)', en: '5(4r⁴ - 9n⁴)' }, { ar: '5(2r² + 3n²)(2r² - 3n²)', en: '5(2r² + 3n²)(2r² - 3n²)' }, { ar: '5(√2r + √3n)(√2r - √3n)(2r² + 3n²)', en: '5(√2r + √3n)(√2r - √3n)(2r² + 3n²)' }, { ar: '5(2r² - 3n²)(2r² + 3n²)', en: '5(2r² - 3n²)(2r² + 3n²)' } ], correct: 3, answer: { ar: 'تحليل 20r⁴ - 45n⁴ إلى عوامل هو 5(2r² - 3n²)(2r² + 3n²).', en: 'The factorization of 20r⁴ - 45n⁴ is 5(2r² - 3n²)(2r² + 3n²).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 256n⁴ - c⁴', en: 'Factor the expression: 256n⁴ - c⁴' }, options: [ { ar: '(16n² + c²)(16n² - c²)', en: '(16n² + c²)(16n² - c²)' }, { ar: '(16n² - c²)(16n² + c²)', en: '(16n² - c²)(16n² + c²)' }, { ar: '(4n + c)(4n - c)(16n² + c²)', en: '(4n + c)(4n - c)(16n² + c²)' }, { ar: '(4n - c)(4n + c)(16n² + c²)', en: '(4n - c)(4n + c)(16n² + c²)' } ], correct: 3, answer: { ar: 'تحليل 256n⁴ - c⁴ إلى عوامل هو (4n - c)(4n + c)(16n² + c²).', en: 'The factorization of 256n⁴ - c⁴ is (4n - c)(4n + c)(16n² + c²).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 2c³ + 3c² - 2c - 3', en: 'Factor the expression: 2c³ + 3c² - 2c - 3' }, options: [ { ar: '(2c + 3)(c² - 1)', en: '(2c + 3)(c² - 1)' }, { ar: '(2c - 1)(c² + 3)', en: '(2c - 1)(c² + 3)' }, { ar: '(c + 1)(2c² + c - 3)', en: '(c + 1)(2c² + c - 3)' }, { ar: '(c - 1)(2c² + 5c + 3)', en: '(c - 1)(2c² + 5c + 3)' } ], correct: 0, answer: { ar: 'تحليل 2c³ + 3c² - 2c - 3 إلى عوامل هو (2c + 3)(c² - 1).', en: 'The factorization of 2c³ + 3c² - 2c - 3 is (2c + 3)(c² - 1).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: f³ - 4f² - 9f + 36', en: 'Factor the expression: f³ - 4f² - 9f + 36' }, options: [ { ar: '(f - 4)(f² - 9)', en: '(f - 4)(f² - 9)' }, { ar: '(f + 3)(f² - 7f + 12)', en: '(f + 3)(f² - 7f + 12)' }, { ar: '(f - 3)(f² - f - 12)', en: '(f - 3)(f² - f - 12)' }, { ar: '(f + 4)(f² - 4f - 9)', en: '(f + 4)(f² - 4f - 9)' } ], correct: 0, answer: { ar: 'تحليل f³ - 4f² - 9f + 36 إلى عوامل هو (f - 4)(f² - 9).', en: 'The factorization of f³ - 4f² - 9f + 36 is (f - 4)(f² - 9).' } }
+            ]
+        },
+        {
+            id: 'sec2',
+            title: { ar: '🔹 الجزء الثاني: تطبيق تقنيات متعددة', en: '🔹 Part 2: Applying Multiple Techniques' },
+            questions: [
+                { q: { ar: 'حلل التعبير إلى عوامل: y⁴ - 1', en: 'Factor the expression: y⁴ - 1' }, options: [ { ar: '(y² + 1)(y² - 1)', en: '(y² + 1)(y² - 1)' }, { ar: '(y² - 1)(y² + 1)', en: '(y² - 1)(y² + 1)' }, { ar: '(y + 1)(y - 1)(y² + 1)', en: '(y + 1)(y - 1)(y² + 1)' }, { ar: '(y - 1)(y + 1)(y² + 1)', en: '(y - 1)(y + 1)(y² + 1)' } ], correct: 2, answer: { ar: 'تحليل y⁴ - 1 إلى عوامل هو (y + 1)(y - 1)(y² + 1).', en: 'The factorization of y⁴ - 1 is (y + 1)(y - 1)(y² + 1).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 81 - x⁴', en: 'Factor the expression: 81 - x⁴' }, options: [ { ar: '(9 + x²)(9 - x²)', en: '(9 + x²)(9 - x²)' }, { ar: '(9 - x²)(9 + x²)', en: '(9 - x²)(9 + x²)' }, { ar: '(3 + x)(3 - x)(9 + x²)', en: '(3 + x)(3 - x)(9 + x²)' }, { ar: '(3 - x)(3 + x)(9 + x²)', en: '(3 - x)(3 + x)(9 + x²)' } ], correct: 2, answer: { ar: 'تحليل 81 - x⁴ إلى عوامل هو (3 + x)(3 - x)(9 + x²).', en: 'The factorization of 81 - x⁴ is (3 + x)(3 - x)(9 + x²).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 4a⁴ - b⁴', en: 'Factor the expression: 4a⁴ - b⁴' }, options: [ { ar: '(2a² + b²)(2a² - b²)', en: '(2a² + b²)(2a² - b²)' }, { ar: '(2a² - b²)(2a² + b²)', en: '(2a² - b²)(2a² + b²)' }, { ar: '(√2a + b)(√2a - b)(2a² + b²)', en: '(√2a + b)(√2a - b)(2a² + b²)' }, { ar: '(√2a - b)(√2a + b)(2a² + b²)', en: '(√2a - b)(√2a + b)(2a² + b²)' } ], correct: 3, answer: { ar: 'تحليل 4a⁴ - b⁴ إلى عوامل هو (√2a - b)(√2a + b)(2a² + b²).', en: 'The factorization of 4a⁴ - b⁴ is (√2a - b)(√2a + b)(2a² + b²).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 16y⁴ - 1', en: 'Factor the expression: 16y⁴ - 1' }, options: [ { ar: '(4y² + 1)(4y² - 1)', en: '(4y² + 1)(4y² - 1)' }, { ar: '(4y² - 1)(4y² + 1)', en: '(4y² - 1)(4y² + 1)' }, { ar: '(2y + 1)(2y - 1)(4y² + 1)', en: '(2y + 1)(2y - 1)(4y² + 1)' }, { ar: '(2y - 1)(2y + 1)(4y² + 1)', en: '(2y - 1)(2y + 1)(4y² + 1)' } ], correct: 3, answer: { ar: 'تحليل 16y⁴ - 1 إلى عوامل هو (2y - 1)(2y + 1)(4y² + 1).', en: 'The factorization of 16y⁴ - 1 is (2y - 1)(2y + 1)(4y² + 1).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 2y⁴ - 50', en: 'Factor the expression: 2y⁴ - 50' }, options: [ { ar: '2(y⁴ - 25)', en: '2(y⁴ - 25)' }, { ar: '2(y² + 5)(y² - 5)', en: '2(y² + 5)(y² - 5)' }, { ar: '2(y + √5)(y - √5)(y² + 5)', en: '2(y + √5)(y - √5)(y² + 5)' }, { ar: '2(y - √5)(y + √5)(y² + 5)', en: '2(y - √5)(y + √5)(y² + 5)' } ], correct: 3, answer: { ar: 'تحليل 2y⁴ - 50 إلى عوامل هو 2(y - √5)(y + √5)(y² + 5).', en: 'The factorization of 2y⁴ - 50 is 2(y - √5)(y + √5)(y² + 5).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 6x⁴ - 96', en: 'Factor the expression: 6x⁴ - 96' }, options: [ { ar: '6(x⁴ - 16)', en: '6(x⁴ - 16)' }, { ar: '6(x² + 4)(x² - 4)', en: '6(x² + 4)(x² - 4)' }, { ar: '6(x + 2)(x - 2)(x² + 4)', en: '6(x + 2)(x - 2)(x² + 4)' }, { ar: '6(x - 2)(x + 2)(x² + 4)', en: '6(x - 2)(x + 2)(x² + 4)' } ], correct: 3, answer: { ar: 'تحليل 6x⁴ - 96 إلى عوامل هو 6(x - 2)(x + 2)(x² + 4).', en: 'The factorization of 6x⁴ - 96 is 6(x - 2)(x + 2)(x² + 4).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: r³ + 6r² + 11r + 66', en: 'Factor the expression: r³ + 6r² + 11r + 66' }, options: [ { ar: '(r + 6)(r² + 11)', en: '(r + 6)(r² + 11)' }, { ar: '(r + 3)(r² + 3r + 22)', en: '(r + 3)(r² + 3r + 22)' }, { ar: '(r + 2)(r² + 4r + 33)', en: '(r + 2)(r² + 4r + 33)' }, { ar: '(r + 1)(r² + 5r + 66)', en: '(r + 1)(r² + 5r + 66)' } ], correct: 0, answer: { ar: 'تحليل r³ + 6r² + 11r + 66 إلى عوامل هو (r + 6)(r² + 11).', en: 'The factorization of r³ + 6r² + 11r + 66 is (r + 6)(r² + 11).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 2m³ + m² - 50m - 25', en: 'Factor the expression: 2m³ + m² - 50m - 25' }, options: [ { ar: '(2m + 5)(m² - 10)', en: '(2m + 5)(m² - 10)' }, { ar: '(m + 5)(2m² - 9m - 5)', en: '(m + 5)(2m² - 9m - 5)' }, { ar: '(m + 1)(2m² - m - 25)', en: '(m + 1)(2m² - m - 25)' }, { ar: '(2m - 5)(m² + 3m + 5)', en: '(2m - 5)(m² + 3m + 5)' } ], correct: 0, answer: { ar: 'تحليل 2m³ + m² - 50m - 25 إلى عوامل هو (2m + 5)(m² - 10).', en: 'The factorization of 2m³ + m² - 50m - 25 is (2m + 5)(m² - 10).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 3x³ + x² - 75x - 25', en: 'Factor the expression: 3x³ + x² - 75x - 25' }, options: [ { ar: '(3x + 1)(x² - 25)', en: '(3x + 1)(x² - 25)' }, { ar: '(x + 5)(3x² - 14x - 5)', en: '(x + 5)(3x² - 14x - 5)' }, { ar: '(x + 1)(3x² - 2x - 25)', en: '(x + 1)(3x² - 2x - 25)' }, { ar: '(3x - 5)(x² + 3x + 5)', en: '(3x - 5)(x² + 3x + 5)' } ], correct: 0, answer: { ar: 'تحليل 3x³ + x² - 75x - 25 إلى عوامل هو (3x + 1)(x² - 25).', en: 'The factorization of 3x³ + x² - 75x - 25 is (3x + 1)(x² - 25).' } },
+                { q: { ar: 'حلل التعبير إلى عوامل: 50x² - 2', en: 'Factor the expression: 50x² - 2' }, options: [ { ar: '2(25x² - 1)', en: '2(25x² - 1)' }, { ar: '2(5x + 1)(5x - 1)', en: '2(5x + 1)(5x - 1)' }, { ar: '(5x + 1)(5x - 1)', en: '(5x + 1)(5x - 1)' }, { ar: '2(5x - 1)²', en: '2(5x - 1)²' } ], correct: 1, answer: { ar: 'تحليل 50x² - 2 إلى عوامل هو 2(5x + 1)(5x - 1).', en: 'The factorization of 50x² - 2 is 2(5x + 1)(5x - 1).' } }
+            ]
+        },
+        {
+            id: 'sec3',
+            title: { ar: '🔹 الجزء الثالث: حل المعادلات', en: '🔹 Part 3: Solving Equations' },
+            questions: [
+                { q: { ar: 'حل المعادلة: 36w² = 121', en: 'Solve the equation: 36w² = 121' }, options: [ { ar: 'w = ±11/6', en: 'w = ±11/6' }, { ar: 'w = ±6/11', en: 'w = ±6/11' }, { ar: 'w = 11/6', en: 'w = 11/6' }, { ar: 'w = -11/6', en: 'w = -11/6' } ], correct: 0, answer: { ar: 'حل المعادلة 36w² = 121 هو w = ±11/6.', en: 'The solution to the equation 36w² = 121 is w = ±11/6.' } },
+                { q: { ar: 'حل المعادلة: 100 = 25x²', en: 'Solve the equation: 100 = 25x²' }, options: [ { ar: 'x = ±2', en: 'x = ±2' }, { ar: 'x = ±1/2', en: 'x = ±1/2' }, { ar: 'x = 2', en: 'x = 2' }, { ar: 'x = -2', en: 'x = -2' } ], correct: 0, answer: { ar: 'حل المعادلة 100 = 25x² هو x = ±2.', en: 'The solution to the equation 100 = 25x² is x = ±2.' } },
+                { q: { ar: 'حل المعادلة: 64x² - 1 = 0', en: 'Solve the equation: 64x² - 1 = 0' }, options: [ { ar: 'x = ±1/8', en: 'x = ±1/8' }, { ar: 'x = ±8', en: 'x = ±8' }, { ar: 'x = 1/8', en: 'x = 1/8' }, { ar: 'x = -1/8', en: 'x = -1/8' } ], correct: 0, answer: { ar: 'حل المعادلة 64x² - 1 = 0 هو x = ±1/8.', en: 'The solution to the equation 64x² - 1 = 0 is x = ±1/8.' } },
+                { q: { ar: 'حل المعادلة: 4y² - 9/16 = 0', en: 'Solve the equation: 4y² - 9/16 = 0' }, options: [ { ar: 'y = ±3/4', en: 'y = ±3/4' }, { ar: 'y = ±4/3', en: 'y = ±4/3' }, { ar: 'y = 3/4', en: 'y = 3/4' }, { ar: 'y = -3/4', en: 'y = -3/4' } ], correct: 0, answer: { ar: 'حل المعادلة 4y² - 9/16 = 0 هو y = ±3/4.', en: 'The solution to the equation 4y² - 9/16 = 0 is y = ±3/4.' } },
+                { q: { ar: 'حل المعادلة: (1/4)b² = 16', en: 'Solve the equation: (1/4)b² = 16' }, options: [ { ar: 'b = ±8', en: 'b = ±8' }, { ar: 'b = ±4', en: 'b = ±4' }, { ar: 'b = 8', en: 'b = 8' }, { ar: 'b = -8', en: 'b = -8' } ], correct: 0, answer: { ar: 'حل المعادلة (1/4)b² = 16 هو b = ±8.', en: 'The solution to the equation (1/4)b² = 16 is b = ±8.' } },
+                { q: { ar: 'حل المعادلة: 81 - (1/25)x² = 0', en: 'Solve the equation: 81 - (1/25)x² = 0' }, options: [ { ar: 'x = ±45', en: 'x = ±45' }, { ar: 'x = ±1/45', en: 'x = ±1/45' }, { ar: 'x = 45', en: 'x = 45' }, { ar: 'x = -45', en: 'x = -45' } ], correct: 0, answer: { ar: 'حل المعادلة 81 - (1/25)x² = 0 هو x = ±45.', en: 'The solution to the equation 81 - (1/25)x² = 0 is x = ±45.' } },
+                { q: { ar: 'حل المعادلة: 9d² - 81 = 0', en: 'Solve the equation: 9d² - 81 = 0' }, options: [ { ar: 'd = ±3', en: 'd = ±3' }, { ar: 'd = ±9', en: 'd = ±9' }, { ar: 'd = 3', en: 'd = 3' }, { ar: 'd = -3', en: 'd = -3' } ], correct: 0, answer: { ar: 'حل المعادلة 9d² - 81 = 0 هو d = ±3.', en: 'The solution to the equation 9d² - 81 = 0 is d = ±3.' } },
+                { q: { ar: 'حل المعادلة: 4a² = 9/64', en: 'Solve the equation: 4a² = 9/64' }, options: [ { ar: 'a = ±3/8', en: 'a = ±3/8' }, { ar: 'a = ±8/3', en: 'a = ±8/3' }, { ar: 'a = 3/8', en: 'a = 3/8' }, { ar: 'a = -3/8', en: 'a = -3/8' } ], correct: 0, answer: { ar: 'حل المعادلة 4a² = 9/64 هو a = ±3/8.', en: 'The solution to the equation 4a² = 9/64 is a = ±3/8.' } },
+                { q: { ar: 'حل المعادلة: 18x³ = 50x', en: 'Solve the equation: 18x³ = 50x' }, options: [ { ar: 'x = 0, x = ±5/3', en: 'x = 0, x = ±5/3' }, { ar: 'x = ±5/3', en: 'x = ±5/3' }, { ar: 'x = 0, x = 5/3', en: 'x = 0, x = 5/3' }, { ar: 'x = 0, x = -5/3', en: 'x = 0, x = -5/3' } ], correct: 0, answer: { ar: 'حل المعادلة 18x³ = 50x هو x = 0, x = ±5/3.', en: 'The solution to the equation 18x³ = 50x is x = 0, x = ±5/3.' } },
+                { q: { ar: 'ما حلول المعادلة y = x² - 9/16 عندما y = 0؟', en: 'What are the solutions to the equation y = x² - 9/16 when y = 0?' }, options: [ { ar: 'x = ±3/4', en: 'x = ±3/4' }, { ar: 'x = ±4/3', en: 'x = ±4/3' }, { ar: 'x = 3/4', en: 'x = 3/4' }, { ar: 'x = -3/4', en: 'x = -3/4' } ], correct: 0, answer: { ar: 'حلول المعادلة y = x² - 9/16 عندما y = 0 هي x = ±3/4.', en: 'The solutions to the equation y = x² - 9/16 when y = 0 are x = ±3/4.' } }
+            ]
+        },
+        {
+            id: 'sec4',
+            title: { ar: '🔹 الجزء الرابع: التطبيقات الحياتية', en: '🔹 Part 4: Real-Life Applications' },
+            questions: [
+                { q: { ar: 'في مثال علامات الانزلاق، ما السرعة التي كانت تسير بها السيارة عند الضغط على المكابح إذا كان طول علامات الانزلاق 54 ft؟', en: 'In the skid marks example, what was the speed of the car when the brakes were applied if the skid marks were 54 ft long?' }, options: [ { ar: '48 ميل/ساعة', en: '48 mph' }, { ar: '54 ميل/ساعة', en: '54 mph' }, { ar: '60 ميل/ساعة', en: '60 mph' }, { ar: '72 ميل/ساعة', en: '72 mph' } ], correct: 0, answer: { ar: 'السرعة التي كانت تسير بها السيارة عند الضغط على المكابح إذا كان طول علامات الانزلاق 54 ft هي 48 ميل/ساعة.', en: 'The speed of the car when the brakes were applied if the skid marks were 54 ft long is 48 mph.' } },
+                { q: { ar: 'في مثال علامات الانزلاق، ما السرعة التي كانت تسير بها السيارة عند الضغط على المكابح إذا كان طول علامات الانزلاق 150 ft؟', en: 'In the skid marks example, what was the speed of the car when the brakes were applied if the skid marks were 150 ft long?' }, options: [ { ar: '80 ميل/ساعة', en: '80 mph' }, { ar: '90 ميل/ساعة', en: '90 mph' }, { ar: '100 ميل/ساعة', en: '100 mph' }, { ar: '120 ميل/ساعة', en: '120 mph' } ], correct: 1, answer: { ar: 'السرعة التي كانت تسير بها السيارة عند الضغط على المكابح إذا كان طول علامات الانزلاق 150 ft هي 90 ميل/ساعة.', en: 'The speed of the car when the brakes were applied if the skid marks were 150 ft long is 90 mph.' } },
+                { q: { ar: 'في مثال الديكورات، ما بعدي مستطيل له مساحة المنطقة المظللة نفسها في الرسم؟', en: 'In the decorations example, what are the dimensions of a rectangle with the same area as the shaded region in the diagram?' }, options: [ { ar: '(a + b)(a - b)', en: '(a + b)(a - b)' }, { ar: '(a - b)(a + b)', en: '(a - b)(a + b)' }, { ar: '(a + b)²', en: '(a + b)²' }, { ar: '(a - b)²', en: '(a - b)²' } ], correct: 0, answer: { ar: 'بعدي مستطيل له مساحة المنطقة المظللة نفسها في الرسم هما (a + b)(a - b).', en: 'The dimensions of a rectangle with the same area as the shaded region in the diagram are (a + b)(a - b).' } },
+                { q: { ar: 'في مثال القوس، ما التعبير الذي يمثل ارتفاع القوس بصيغة محللة إلى العوامل؟', en: 'In the arch example, what is the factored form of the expression representing the height of the arch?' }, options: [ { ar: 'y = -0.5x(x - 9)', en: 'y = -0.5x(x - 9)' }, { ar: 'y = 0.5x(x - 9)', en: 'y = 0.5x(x - 9)' }, { ar: 'y = -0.5(x - 9)x', en: 'y = -0.5(x - 9)x' }, { ar: 'y = 0.5(x - 9)x', en: 'y = 0.5(x - 9)x' } ], correct: 0, answer: { ar: 'التعبير الذي يمثل ارتفاع القوس بصيغة محللة إلى العوامل هو y = -0.5x(x - 9).', en: 'The factored form of the expression representing the height of the arch is y = -0.5x(x - 9).' } },
+                { q: { ar: 'في مثال القوس، ما المسافة الفاصلة بين نقطتي تلامس القوس مع الأرض؟', en: 'In the arch example, what is the distance between the two points where the arch touches the ground?' }, options: [ { ar: '9 قدم', en: '9 feet' }, { ar: '4.5 قدم', en: '4.5 feet' }, { ar: '18 قدم', en: '18 feet' }, { ar: '3 قدم', en: '3 feet' } ], correct: 0, answer: { ar: 'المسافة الفاصلة بين نقطتي تلامس القوس مع الأرض هي 9 قدم.', en: 'The distance between the two points where the arch touches the ground is 9 feet.' } },
+                { q: { ar: 'في مثال القوس، ما ارتفاع النقطة العليا في القوس؟', en: 'In the arch example, what is the height of the highest point of the arch?' }, options: [ { ar: '10.125 قدم', en: '10.125 feet' }, { ar: '8.125 قدم', en: '8.125 feet' }, { ar: '6.125 قدم', en: '6.125 feet' }, { ar: '4.125 قدم', en: '4.125 feet' } ], correct: 0, answer: { ar: 'ارتفاع النقطة العليا في القوس هو 10.125 قدم.', en: 'The height of the highest point of the arch is 10.125 feet.' } },
+                { q: { ar: 'في مثال زينة الشرفة، ما بعد الشرفة إذا كانت مساحة الشرفة الصغرى 512 ft²؟', en: 'In the patio example, what are the dimensions of the patio if the smaller area is 512 ft²?' }, options: [ { ar: '16 ft × 32 ft', en: '16 ft × 32 ft' }, { ar: '18 ft × 30 ft', en: '18 ft × 30 ft' }, { ar: '20 ft × 28 ft', en: '20 ft × 28 ft' }, { ar: '22 ft × 26 ft', en: '22 ft × 26 ft' } ], correct: 0, answer: { ar: 'بعد الشرفة إذا كانت مساحة الشرفة الصغرى 512 ft² هما 16 ft × 32 ft.', en: 'The dimensions of the patio if the smaller area is 512 ft² are 16 ft × 32 ft.' } },
+                { q: { ar: 'في مثال مبيعات الأقراص الموسيقية، في أي شهر ستبلغ مبيعات الأقراص ذروتها؟', en: 'In the music CD sales example, in which month will the CD sales peak?' }, options: [ { ar: 'الشهر الثالث', en: '3rd month' }, { ar: 'الشهر الثاني', en: '2nd month' }, { ar: 'الشهر الرابع', en: '4th month' }, { ar: 'الشهر الخامس', en: '5th month' } ], correct: 1, answer: { ar: 'ستبلغ مبيعات الأقراص ذروتها في الشهر الثاني.', en: 'The CD sales will peak in the 2nd month.' } },
+                { q: { ar: 'في مثال مبيعات الأقراص الموسيقية، كم نسخة ستبلغ من القرص في ذروة المبيعات؟', en: 'In the music CD sales example, how many copies will be sold at the peak of sales?' }, options: [ { ar: '15,625 نسخة', en: '15,625 copies' }, { ar: '12,500 نسخة', en: '12,500 copies' }, { ar: '10,000 نسخة', en: '10,000 copies' }, { ar: '20,000 نسخة', en: '20,000 copies' } ], correct: 0, answer: { ar: 'عدد النسخ التي ستبلغ من القرص في ذروة المبيعات هو 15,625 نسخة.', en: 'The number of copies sold at the peak of sales is 15,625 copies.' } },
+                { q: { ar: 'في أي شهر على متجر التسجيلات الموسيقية أن يتوقع توقف بيع الأقراص؟', en: 'In which month should the music store expect CD sales to stop?' }, options: [ { ar: 'الشهر الخامس', en: '5th month' }, { ar: 'الشهر السادس', en: '6th month' }, { ar: 'الشهر السابع', en: '7th month' }, { ar: 'الشهر الثامن', en: '8th month' } ], correct: 0, answer: { ar: 'على متجر التسجيلات الموسيقية أن يتوقع توقف بيع الأقراص في الشهر الخامس.', en: 'The music store should expect CD sales to stop in the 5th month.' } }
+            ]
+        },
+        {
+            id: 'sec5',
+            title: { ar: '🔹 الجزء الخامس: المسائل المتقدمة', en: '🔹 Part 5: Advanced Problems' },
+            questions: [
+                { q: { ar: 'حلل 16x⁴ - 25y² إلى عوامل.', en: 'Factor 16x⁴ - 25y².' }, options: [ { ar: '(4x² + 5y)(4x² - 5y)', en: '(4x² + 5y)(4x² - 5y)' }, { ar: '(4x² - 5y)(4x² + 5y)', en: '(4x² - 5y)(4x² + 5y)' }, { ar: '(2x + 5y)(2x - 5y)(2x² + 5y²)', en: '(2x + 5y)(2x - 5y)(2x² + 5y²)' }, { ar: '(2x - 5y)(2x + 5y)(2x² + 5y²)', en: '(2x - 5y)(2x + 5y)(2x² + 5y²)' } ], correct: 3, answer: { ar: 'تحليل 16x⁴ - 25y² إلى عوامل هو (2x - 5y)(2x + 5y)(2x² + 5y²).', en: 'The factorization of 16x⁴ - 25y² is (2x - 5y)(2x + 5y)(2x² + 5y²).' } },
+                { q: { ar: 'حلل وبسط 9 - (k + 3)² التي تمثل فرق مربعي حدين.', en: 'Factor and simplify 9 - (k + 3)², which represents the difference of squares of two terms.' }, options: [ { ar: '(3 + k + 3)(3 - k - 3)', en: '(3 + k + 3)(3 - k - 3)' }, { ar: '(k + 6)(-k)', en: '(k + 6)(-k)' }, { ar: '-(k + 6)k', en: '-(k + 6)k' }, { ar: '(3 - (k + 3))(3 + (k + 3))', en: '(3 - (k + 3))(3 + (k + 3))' } ], correct: 3, answer: { ar: 'تحليل وبسط 9 - (k + 3)² هو (3 - (k + 3))(3 + (k + 3)).', en: 'The factorization and simplification of 9 - (k + 3)² is (3 - (k + 3))(3 + (k + 3)).' } },
+                { q: { ar: 'حلل x¹⁶ - 81 إلى العوامل.', en: 'Factor x¹⁶ - 81.' }, options: [ { ar: '(x⁸ + 9)(x⁸ - 9)', en: '(x⁸ + 9)(x⁸ - 9)' }, { ar: '(x⁴ + 3)(x⁴ - 3)(x⁸ + 9)', en: '(x⁴ + 3)(x⁴ - 3)(x⁸ + 9)' }, { ar: '(x² + 3)(x² - 3)(x⁴ + 9)(x⁸ + 9)', en: '(x² + 3)(x² - 3)(x⁴ + 9)(x⁸ + 9)' }, { ar: '(x - 3)(x + 3)(x² + 9)(x⁴ + 9)(x⁸ + 9)', en: '(x - 3)(x + 3)(x² + 9)(x⁴ + 9)(x⁸ + 9)' } ], correct: 3, answer: { ar: 'تحليل x¹⁶ - 81 إلى عوامل هو (x - 3)(x + 3)(x² + 9)(x⁴ + 9)(x⁸ + 9).', en: 'The factorization of x¹⁶ - 81 is (x - 3)(x + 3)(x² + 9)(x⁴ + 9)(x⁸ + 9).' } },
+                { q: { ar: 'اكتب ثنائية حدود تمثل فرق مربعي حدين كاملين عاملهما المشترك الأكبر يساوي 5mk إلى عواملها.', en: 'Write a binomial that represents the difference of squares of two perfect terms with a greatest common factor of 5mk and factor it.' }, options: [ { ar: '5mk(25m²k² - 4n²) = 5mk(5mk + 2n)(5mk - 2n)', en: '5mk(25m²k² - 4n²) = 5mk(5mk + 2n)(5mk - 2n)' }, { ar: '5mk(25m² - 4n²) = 5mk(5m + 2n)(5m - 2n)', en: '5mk(25m² - 4n²) = 5mk(5m + 2n)(5m - 2n)' }, { ar: '5mk(25m²k² - 4) = 5mk(5mk + 2)(5mk - 2)', en: '5mk(25m²k² - 4) = 5mk(5mk + 2)(5mk - 2)' }, { ar: '5mk(25m² - 4) = 5mk(5m + 2)(5m - 2)', en: '5mk(25m² - 4) = 5mk(5m + 2)(5m - 2)' } ], correct: 1, answer: { ar: 'ثنائية حدود تمثل فرق مربعي حدين كاملين عاملهما المشترك الأكبر يساوي 5mk هي 5mk(25m² - 4n²) = 5mk(5m + 2n)(5m - 2n).', en: 'A binomial that represents the difference of squares of two perfect terms with a greatest common factor of 5mk is 5mk(25m² - 4n²) = 5mk(5m + 2n)(5m - 2n).' } },
+                { q: { ar: 'حدّد إذا كانت العبارة التالية صحيحة أو خاطئة: كل ثنائيات الحدود التي يكون كل من حدّيها مربعًا كاملًا قابلة للتحليل إلى العوامل.', en: 'Determine if the following statement is true or false: All binomials where each term is a perfect square are factorable.' }, options: [ { ar: 'صحيحة', en: 'True' }, { ar: 'خاطئة', en: 'False' }, { ar: 'صحيحة فقط إذا كانت الإشارات مختلفة', en: 'True only if the signs are different' }, { ar: 'صحيحة فقط إذا كانت الإشارات متشابهة', en: 'True only if the signs are the same' } ], correct: 2, answer: { ar: 'العبارة خاطئة. ثنائيات الحدود التي تكون كل من حدّيها مربعًا كاملًا قابلة للتحليل إلى العوامل فقط إذا كانت الإشارات مختلفة (فرق بين مربعين).', en: 'The statement is false. Binomials where each term is a perfect square are factorable only if the signs are different (difference of squares).' } },
+                { q: { ar: 'اكتب ثنائية حدود يتعين تكرار نمط الفرق بين مربعين فيها لتحليلها بالكامل إلى العوامل.', en: 'Write a binomial where the difference of squares pattern must be applied repeatedly to factor it completely.' }, options: [ { ar: 'x⁸ - 1', en: 'x⁸ - 1' }, { ar: 'x⁴ - 16', en: 'x⁴ - 16' }, { ar: 'x⁶ - 64', en: 'x⁶ - 64' }, { ar: 'x² - 25', en: 'x² - 25' } ], correct: 0, answer: { ar: 'ثنائية حدود يتعين تكرار نمط الفرق بين مربعين فيها لتحليلها بالكامل إلى العوامل هي x⁸ - 1.', en: 'A binomial where the difference of squares pattern must be applied repeatedly to factor it completely is x⁸ - 1.' } },
+                { q: { ar: 'صف السبب في عدم احتواء نمط الفرق بين مربعين على حد وسط ذي متغير.', en: 'Explain why the difference of squares pattern does not have a middle term with a variable.' }, options: [ { ar: 'لأنه ناتج عن ضرب (a + b)(a - b) الذي يلغي الحدين المتوسطين', en: 'Because it is the result of (a + b)(a - b), which cancels out the middle terms' }, { ar: 'لأنه ناتج عن ضرب (a + b)² الذي لا يحتوي على حد وسط', en: 'Because it is the result of (a + b)², which does not have a middle term' }, { ar: 'لأنه ناتج عن ضرب (a + b)(a + b) الذي لا يحتوي على حد وسط', en: 'Because it is the result of (a + b)(a + b), which does not have a middle term' }, { ar: 'لأنه ناتج عن ضرب (a - b)² الذي لا يحتوي على حد وسط', en: 'Because it is the result of (a - b)², which does not have a middle term' } ], correct: 0, answer: { ar: 'السبب في عدم احتواء نمط الفرق بين مربعين على حد وسط ذي متغير هو لأنه ناتج عن ضرب (a + b)(a - b) الذي يلغي الحدين المتوسطين.', en: 'The reason the difference of squares pattern does not have a middle term with a variable is because it is the result of (a + b)(a - b), which cancels out the middle terms.' } },
+                { q: { ar: 'في مثال تحليل الخطأ، من على صواب: سارة أم خلود؟', en: 'In the error analysis example, who is correct: Sara or Khulood?' }, options: [ { ar: 'سارة', en: 'Sara' }, { ar: 'خلود', en: 'Khulood' }, { ar: 'كلتاهما على صواب', en: 'Both are correct' }, { ar: 'كلتاهما على خطأ', en: 'Both are incorrect' } ], correct: 1, answer: { ar: 'خلود على صواب. تحليل 16x⁴ - 25y² إلى عوامل هو (4x² - 5y)(4x² + 5y).', en: 'Khulood is correct. The factorization of 16x⁴ - 25y² is (4x² - 5y)(4x² + 5y).' } },
+                { q: { ar: 'حل المعادلة: (x - 5)² - 49 = 0', en: 'Solve the equation: (x - 5)² - 49 = 0' }, options: [ { ar: 'x = 12, x = -2', en: 'x = 12, x = -2' }, { ar: 'x = 12, x = 2', en: 'x = 12, x = 2' }, { ar: 'x = -12, x = 2', en: 'x = -12, x = 2' }, { ar: 'x = 5, x = -5', en: 'x = 5, x = -5' } ], correct: 0, answer: { ar: 'حل المعادلة (x - 5)² - 49 = 0 هو x = 12 أو x = -2.', en: 'The solution to the equation (x - 5)² - 49 = 0 is x = 12 or x = -2.' } },
+                { q: { ar: 'إذا كانت مساحة مربع (x+3)² ومساحة مربع آخر (x-3)²، فما الفرق بين مساحتيهما محللاً إلى عوامل؟', en: 'If the area of one square is (x+3)² and another is (x-3)², what is the difference in their areas factored?' }, options: [ { ar: '12x', en: '12x' }, { ar: '(x+3+x-3)(x+3-(x-3)) = 12x', en: '(x+3+x-3)(x+3-(x-3)) = 12x' }, { ar: '6x', en: '6x' }, { ar: '2x² + 18', en: '2x² + 18' } ], correct: 1, answer: { ar: 'الفرق بين المساحتين محللاً هو (x+3+x-3)(x+3-(x-3)) = (2x)(6) = 12x.', en: 'The factored difference in areas is (x+3+x-3)(x+3-(x-3)) = (2x)(6) = 12x.' } }
+            ]
+        }
+    ]
+};
+
+// ==================== Helper Functions ====================
+function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+let examData;
+let correctAnswersMap = {};
+let currentLang = 'ar';
+let timeRemaining = 3600;
+let timerInterval;
+
+function prepareShuffledExam() {
+    examData = JSON.parse(JSON.stringify(originalExamData));
+    correctAnswersMap = {};
+    let globalIdx = 0;
+
+    examData.sections.forEach((section) => {
+        section.questions = shuffleArray(section.questions);
+        section.questions.forEach((q) => {
+            const optionsWithCorrect = q.options.map((opt, idx) => ({
+                option: opt,
+                isCorrect: idx === q.correct
+            }));
+
+            const shuffledOptions = shuffleArray(optionsWithCorrect);
+            q.options = shuffledOptions.map(o => o.option);
+            const newCorrectIndex = shuffledOptions.findIndex(o => o.isCorrect);
+            q.correct = newCorrectIndex;
+
+            correctAnswersMap[globalIdx] = String.fromCharCode(97 + newCorrectIndex);
+            globalIdx++;
+        });
+    });
+}
+
+function reshuffleExam() {
+    prepareShuffledExam();
+    renderExam();
+    document.querySelectorAll('input[type="radio"]:checked').forEach(r => r.checked = false);
+    document.getElementById('results-panel').classList.add('hidden');
+    document.querySelectorAll('.correct, .incorrect').forEach(el => {
+        el.classList.remove('correct', 'incorrect');
+    });
+    alert(currentLang === 'ar' ? '🔀 تم إعادة خلط الأسئلة والخيارات بنجاح!' : '🔀 Questions and options have been reshuffled successfully!');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setLanguage(lang) {
+    currentLang = lang;
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+    document.getElementById('btn-ar').classList.toggle('active', lang === 'ar');
+    document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+    document.body.classList.toggle('en-mode', lang === 'en');
+
+    document.querySelectorAll('[data-ar][data-en]').forEach(el => {
+        el.textContent = el.getAttribute(`data-${lang}`);
+    });
+
+    renderExam();
+}
+
+function renderExam() {
+    const container = document.getElementById('exam-content');
+    const labels = {
+        ar: { option: ['أ', 'ب', 'ج', 'د'], answer: '✅ الإجابة:' },
+        en: { option: ['A', 'B', 'C', 'D'], answer: '✅ Answer:' }
+    };
+    const lbl = labels[currentLang];
+    const isRTL = currentLang === 'ar';
+
+    let html = '';
+    let globalIdx = 0;
+
+    examData.sections.forEach((section) => {
+        html += `
+        <section class="bg-white p-6 rounded-xl shadow-lg">
+            <h2 class="text-xl font-bold mb-4 text-purple-700">${section.title[currentLang]}</h2>
+            <ol class="space-y-4 text-sm">`;
+
+        section.questions.forEach((q) => {
+            const borderSide = isRTL ? 'border-r-4 pr-4' : 'border-l-4 pl-4';
+            html += `
+                <li class="${borderSide} border-purple-500 py-2" id="q-${globalIdx}">
+                    <strong>${globalIdx + 1}.</strong> ${q.q[currentLang]}<br>`;
+
+            q.options.forEach((opt, oIdx) => {
+                const radioSide = isRTL ? 'mr-4 ml-2' : 'ml-4 mr-2';
+                html += `
+                    <label class="cursor-pointer block mt-1 ${isRTL ? 'mr-4' : 'ml-4'}">
+                        <input type="radio" name="q${globalIdx}" value="${String.fromCharCode(97 + oIdx)}" class="${radioSide}">
+                        ${lbl.option[oIdx]}) ${opt[currentLang]}
+                    </label>`;
+            });
+
+            html += `
+                    <div class="answer-box text-green-700 mt-2 font-medium hidden">
+                        ${lbl.answer} ${lbl.option[q.correct]}) ${q.options[q.correct][currentLang]} — ${q.answer[currentLang]}
+                    </div>
+                </li>`;
+            globalIdx++;
+        });
+
+        html += `
+            </ol>
+        </section>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function startTimer() {
+    document.getElementById('timer-container').style.display = 'block';
+    timerInterval = setInterval(() => {
+        timeRemaining--;
+        const minutes = Math.floor(timeRemaining / 60);
+        const seconds = timeRemaining % 60;
+        const timerEl = document.getElementById('timer');
+        timerEl.textContent = `${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+        if (timeRemaining <= 300) timerEl.classList.add('timer-warning');
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            alert(currentLang === 'ar' ? "انتهى الوقت! سيتم تسليم الامتحان تلقائياً." : "Time's up! Exam will be submitted automatically.");
+            gradeExam();
+        }
+    }, 1000);
+}
+
+function toggleAnswers() {
+    document.querySelectorAll('.answer-box').forEach(el => el.classList.toggle('hidden'));
+}
+
+function gradeExam() {
+    clearInterval(timerInterval);
+    let correctCount = 0;
+    let secScores = [0, 0, 0, 0, 0];
+
+    for (let i = 0; i < 50; i++) {
+        const selected = document.querySelector(`input[name="q${i}"]:checked`);
+        const li = document.getElementById(`q-${i}`);
+        const correctAnswer = correctAnswersMap[i];
+
+        if (li) {
+            const isCorrect = selected && selected.value === correctAnswer;
+            if (isCorrect) {
+                correctCount++;
+                li.classList.add('correct');
+                li.classList.remove('incorrect');
+                secScores[Math.floor(i / 10)]++;
+            } else {
+                li.classList.add('incorrect');
+                li.classList.remove('correct');
+            }
+        }
+    }
+
+    const score = correctCount; 
+    const successRate = Math.round((score / 50) * 100);
+
+    document.getElementById('res-total').textContent = `${score} / 50`;
+    document.getElementById('res-name').textContent = document.getElementById('studentName').value || (currentLang === 'ar' ? 'طالب' : 'Student');
+    document.getElementById('res-date').textContent = document.getElementById('examDate').value || new Date().toLocaleDateString(currentLang === 'ar' ? 'ar-AE' : 'en-US');
+
+    for (let i = 0; i < 5; i++) {
+        document.getElementById(`sec${i + 1}-score`).textContent = `${secScores[i]}/10`;
+    }
+
+    const badge = document.getElementById('success-badge');
+    const percent = document.getElementById('success-percent');
+    percent.textContent = `${successRate}%`;
+
+    if (currentLang === 'ar') {
+        if (successRate >= 90) { badge.textContent = 'ممتاز'; badge.className = 'success-badge grade-excellent'; }
+        else if (successRate >= 75) { badge.textContent = 'جيد جداً'; badge.className = 'success-badge grade-good'; }
+        else if (successRate >= 50) { badge.textContent = 'جيد'; badge.className = 'success-badge grade-pass'; }
+        else { badge.textContent = 'يحتاج تحسين'; badge.className = 'success-badge grade-fail'; }
+    } else {
+        if (successRate >= 90) { badge.textContent = 'Excellent'; badge.className = 'success-badge grade-excellent'; }
+        else if (successRate >= 75) { badge.textContent = 'Very Good'; badge.className = 'success-badge grade-good'; }
+        else if (successRate >= 50) { badge.textContent = 'Good'; badge.className = 'success-badge grade-pass'; }
+        else { badge.textContent = 'Needs Improvement'; badge.className = 'success-badge grade-fail'; }
+    }
+
+    document.getElementById('results-panel').classList.remove('hidden');
+    document.getElementById('results-panel').scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('sendEmailBtn').classList.remove('hidden');
+}
+
+function sendResultsToEmail() {
+    const name = document.getElementById('studentName').value.trim();
+    if (!name) {
+        alert(currentLang === 'ar' ? '⚠️ يرجى إدخال اسم الطالب أولاً قبل إرسال النتائج.' : '⚠️ Please enter the student name before sending results.');
+        document.getElementById('studentName').focus();
+        return;
+    }
+
+    const btn = document.getElementById('sendEmailBtn');
+    const status = document.getElementById('emailStatus');
+    btn.disabled = true;
+    btn.textContent = currentLang === 'ar' ? '⏳ جاري الإرسال...' : '📤 Sending...';
+
+    const studentClass = document.getElementById('studentClass').value || 'N/A';
+    const date = document.getElementById('examDate').value || new Date().toLocaleDateString();
+    const score = document.getElementById('res-total').textContent;
+    const successRate = document.getElementById('success-percent').textContent;
+    const badge = document.getElementById('success-badge').textContent;
+
+    const sectionNames = {
+        ar: ['تحليل الفرق بين مربعين', 'تطبيق تقنيات متعددة', 'حل المعادلات', 'التطبيقات الحياتية', 'المسائل المتقدمة'],
+        en: ['Factoring Difference of Squares', 'Applying Multiple Techniques', 'Solving Equations', 'Real-Life Applications', 'Advanced Problems']
+    };
+    const currentSectionNames = sectionNames[currentLang];
+
+    let answersHTML = `<div style="font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: ${currentLang === 'ar' ? 'rtl' : 'ltr'};">
+        <div style="background: linear-gradient(135deg, #8b5cf6, #ec4899); color: white; padding: 20px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h2 style="margin: 0; font-size: 22px;">📝 ${currentLang === 'ar' ? 'نتيجة امتحان الفرق بين مربعين' : 'Difference of Squares Exam Result'}</h2>
+        </div>
+        <div style="background: #f5f3ff; padding: 15px; border: 1px solid #e9d5ff;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 8px; font-weight: bold; color: #7c3aed;">${currentLang === 'ar' ? '👤 الاسم:' : '👤 Name:'}</td><td style="padding: 8px;">${name}</td><td style="padding: 8px; font-weight: bold; color: #7c3aed;">${currentLang === 'ar' ? '🏫 الشعبة:' : '🏫 Class:'}</td><td style="padding: 8px;">${studentClass}</td></tr>
+                <tr><td style="padding: 8px; font-weight: bold; color: #7c3aed;">${currentLang === 'ar' ? '📅 التاريخ:' : '📅 Date:'}</td><td style="padding: 8px;">${date}</td><td style="padding: 8px; font-weight: bold; color: #7c3aed;">${currentLang === 'ar' ? '🏆 التقدير:' : '🏆 Grade:'}</td><td style="padding: 8px;">${badge}</td></tr>
+            </table>
+        </div>
+        <div style="background: white; padding: 20px; text-align: center; border-bottom: 2px solid #e5e7eb;">
+            <div style="display: inline-block; margin: 0 15px;"><div style="font-size: 32px; font-weight: bold; color: #8b5cf6;">${score}</div><div style="color: #6b7280; font-size: 13px;">${currentLang === 'ar' ? 'الدرجة الكلية' : 'Total Score'}</div></div>
+            <div style="display: inline-block; margin: 0 15px;"><div style="font-size: 32px; font-weight: bold; color: #10b981;">${successRate}%</div><div style="color: #6b7280; font-size: 13px;">${currentLang === 'ar' ? 'نسبة النجاح' : 'Success Rate'}</div></div>
+        </div>
+        <h3 style="background: #f3f4f6; padding: 12px; margin: 0; color: #1f2937; border-bottom: 2px solid #d1d5db;">📝 ${currentLang === 'ar' ? 'تفاصيل الإجابات' : 'Answer Details'}</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead><tr style="background: #8b5cf6; color: white;">
+                <th style="padding: 10px; border: 1px solid #7c3aed; width: 8%;">#</th>
+                <th style="padding: 10px; border: 1px solid #7c3aed; width: 32%;">${currentLang === 'ar' ? 'القسم' : 'Section'}</th>
+                <th style="padding: 10px; border: 1px solid #7c3aed; width: 15%;">${currentLang === 'ar' ? 'إجابة الطالب' : 'Student Answer'}</th>
+                <th style="padding: 10px; border: 1px solid #7c3aed; width: 15%;">${currentLang === 'ar' ? 'الصحيحة' : 'Correct'}</th>
+                <th style="padding: 10px; border: 1px solid #7c3aed; width: 15%;">${currentLang === 'ar' ? 'النتيجة' : 'Status'}</th>
+            </tr></thead><tbody>`;
+
+    let secScoresEmail = [0, 0, 0, 0, 0];
+    for (let i = 0; i < 50; i++) {
+        const selected = document.querySelector(`input[name="q${i}"]:checked`);
+        const selectedValue = selected ? selected.value.toUpperCase() : '-';
+        const correctValue = correctAnswersMap[i].toUpperCase();
+        const isCorrect = selectedValue === correctValue;
+        const sectionIndex = Math.floor(i / 10);
+        if (isCorrect) secScoresEmail[sectionIndex]++;
+
+        const rowBg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
+        const statusBg = isCorrect ? '#dcfce7' : '#fee2e2';
+        const statusColor = isCorrect ? '#166534' : '#991b1b';
+        const statusIcon = isCorrect ? '✅' : '❌';
+        const statusText = isCorrect ? (currentLang === 'ar' ? 'صحيح' : 'Correct') : (currentLang === 'ar' ? 'خطأ' : 'Wrong');
+
+        answersHTML += `<tr style="background: ${rowBg};">
+            <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; font-weight: bold;">${i + 1}</td>
+            <td style="padding: 8px; border: 1px solid #e5e7eb;">${currentSectionNames[sectionIndex]}</td>
+            <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; font-weight: bold;">${selectedValue}</td>
+            <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; font-weight: bold; color: #059669;">${correctValue}</td>
+            <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center; background: ${statusBg}; color: ${statusColor}; font-weight: bold;">${statusIcon} ${statusText}</td>
+        </tr>`;
+    }
+
+    answersHTML += `</tbody></table>
+        <h3 style="background: #f3f4f6; padding: 12px; margin: 0; color: #1f2937; border-bottom: 2px solid #d1d5db; border-top: 3px solid #8b5cf6;">📊 ${currentLang === 'ar' ? 'تفصيل الأداء' : 'Performance Breakdown'}</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead><tr style="background: #7c3aed; color: white;">
+                <th style="padding: 10px; border: 1px solid #6d28d9;">${currentLang === 'ar' ? 'القسم' : 'Section'}</th>
+                <th style="padding: 10px; border: 1px solid #6d28d9; width: 20%;">${currentLang === 'ar' ? 'النتيجة' : 'Score'}</th>
+                <th style="padding: 10px; border: 1px solid #6d28d9; width: 20%;">${currentLang === 'ar' ? 'النسبة' : 'Percentage'}</th>
+            </tr></thead><tbody>`;
+
+    for (let i = 0; i < 5; i++) {
+        const percentage = Math.round((secScoresEmail[i] / 10) * 100);
+        const barColor = percentage >= 75 ? '#10b981' : percentage >= 50 ? '#f59e0b' : '#ef4444';
+        const rowBg = i % 2 === 0 ? '#f9fafb' : '#ffffff';
+        answersHTML += `<tr style="background: ${rowBg};">
+            <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: 600;">${currentSectionNames[i]}</td>
+            <td style="padding: 10px; border: 1px solid #e5e7eb; text-align: center; font-weight: bold; color: #8b5cf6;">${secScoresEmail[i]} / 10</td>
+            <td style="padding: 10px; border: 1px solid #e5e7eb;">
+                <div style="background: #e5e7eb; border-radius: 10px; overflow: hidden; height: 20px; position: relative;">
+                    <div style="background: ${barColor}; width: ${percentage}%; height: 100%;"></div>
+                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 11px; font-weight: bold; color: #1f2937;">${percentage}%</span>
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    answersHTML += `</tbody></table>
+        <div style="background: linear-gradient(135deg, #fef3c7, #fde68a); padding: 15px; border-radius: 0 0 10px 10px; border-top: 2px solid #f59e0b;">
+            <p style="margin: 0; color: #78350f; text-align: center; font-size: 13px;">💡 <strong>${currentLang === 'ar' ? 'ملاحظة:' : 'Note:'}</strong> ${currentLang === 'ar' ? 'تم إرسال هذا التقرير تلقائياً من منصة 4U التعليمية | Mr. Mohammed Hesham | +971555642674' : 'This report was automatically sent from 4U Educational Platform | Mr. Mohammed Hesham | +971555642674'}</p>
+        </div></div>`;
+
+    const templateParams = {
+        to_email: TARGET_EMAIL,
+        student_name: name,
+        student_class: studentClass,
+        exam_date: date,
+        total_score: score,
+        success_rate: successRate,
+        grade: badge,
+        answers_table: answersHTML
+    };
+
+    emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams)
+        .then(() => {
+            status.textContent = currentLang === 'ar' ? '✅ تم إرسال النتائج بنجاح!' : '✅ Results sent successfully!';
+            status.style.color = '#059669';
+            btn.textContent = currentLang === 'ar' ? '✓ تم الإرسال' : '✓ Sent';
+        })
+        .catch(err => {
+            status.textContent = currentLang === 'ar' ? '❌ فشل الإرسال، تحقق من الاتصال أو إعدادات EmailJS' : '❌ Failed to send, check connection or EmailJS settings';
+            status.style.color = '#dc2626';
+            btn.disabled = false;
+            btn.textContent = currentLang === 'ar' ? '📧 إعادة المحاولة' : '📧 Retry Send';
+            console.error('EmailJS Error:', err);
+        });
+}
+
+// Initialize
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('examDate').valueAsDate = new Date();
+    prepareShuffledExam();
+    renderExam();
+    startTimer();
+});
+</script>
+</body>
+</html>
